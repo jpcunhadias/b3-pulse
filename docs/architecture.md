@@ -74,9 +74,10 @@ Not built in Part 1 (deliberately out of scope): the optional streaming
 Bitcoin pipeline from the original Fase 2 brief. Worth a "bonus" section in
 the writeup, not core path.
 
-### Part 2 — Feature store + served baseline model (in progress)
+### Part 2 — Feature store + served baseline model (done)
 
-`src/b3_pulse/features/`, `src/b3_pulse/models/baseline/`.
+`src/b3_pulse/features/`, `src/b3_pulse/models/baseline/`, `src/b3_pulse/api/`,
+`src/b3_pulse/dashboard/`.
 
 - **2a (done)** — `features/build.py`: DuckDB window functions turn
   `refined_quotes` into a gold-layer feature table: `daily_return`, `ma_5`,
@@ -92,8 +93,38 @@ the writeup, not core path.
   SQLite backend (`mlflow.db` — MLflow's plain file store is deprecated as
   of 3.x). Run it with `uv run python -m b3_pulse.models.baseline.train`,
   inspect runs with `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`.
-- **Not yet built**: a FastAPI ingestion endpoint, and the Streamlit
-  dashboard that serves as Fase 3's required "productive" surface.
+  Each training run is registered under the `b3-pulse-baseline` model name
+  and tagged with a `champion` alias (MLflow's modern replacement for the
+  deprecated stage-based registry) pointing at the newest version — the API
+  always loads `models:/b3-pulse-baseline@champion` rather than a hardcoded
+  version number.
+- **2c (done)** — `api/app.py` (+ `service.py`, `schemas.py`): FastAPI
+  service fulfilling Fase 3's "API that collects data" and Fase 4's
+  "RESTful API serving the model" requirements at once.
+  - `POST /ingest` — runs the full ingest → refine → build-features
+    pipeline for a ticker.
+  - `GET /quotes` — recent refined quotes, for charting.
+  - `GET /predict` — loads the champion model and predicts next-day close
+    from the latest feature row.
+  - `GET /model/metrics` — the latest training run's MAE/RMSE/MAPE.
+  - Run with `uv run b3-pulse-api` (serves on `:8000`).
+- **2d (done)** — `dashboard/app.py`: Streamlit dashboard that is the
+  "productive surface" Fase 3's brief requires — a closing-price chart, the
+  live next-day prediction with delta vs. last close, and the backtested
+  baseline metrics. Deliberately talks to the FastAPI service over HTTP
+  rather than importing pipeline internals, so it's a real client of the
+  API, not a shortcut around it. Run with
+  `uv run streamlit run src/b3_pulse/dashboard/app.py` (needs the API
+  running separately).
+
+**Known limitation found while verifying 2c/2d live**: the baseline
+extrapolates poorly once the price moves outside the range it was trained
+on — trained on ~2022–2024 data (prices in the 30s–40s), it under-predicts
+by ~11% against a 2026 closing price near 47. Gradient-boosted trees don't
+extrapolate past their training range; this is expected, not a bug, and is
+exactly the kind of failure mode worth calling out in the writeup as the
+LSTM's reason to exist (or at minimum, motivates retraining on a rolling
+window rather than a fixed historical slice).
 
 ### Part 3 — Deep learning + MLOps (blocked on ML server, resumes next week)
 

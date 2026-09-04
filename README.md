@@ -16,8 +16,9 @@ Medallion lakehouse, built up in parts:
    into a **silver** bucket with DuckDB SQL (aggregation, renames, a
    date-gap calc), and register it as a queryable view in a local DuckDB
    "warehouse" file — the local stand-in for Glue Catalog + Athena.
-2. **Feature store + served baseline model** — FastAPI ingestion endpoint,
-   a baseline ML model, MLflow tracking, a Streamlit dashboard.
+2. **Feature store + served baseline model** (this part) — a gold-layer
+   feature store, a `GradientBoostingRegressor` baseline tracked in MLflow,
+   a FastAPI service, and a Streamlit dashboard consuming it.
 3. **Deep learning + MLOps** — LSTM forecaster on the same silver data,
    FastAPI `/predict`, Docker, basic monitoring. *(Resumes once the ML
    server is back online.)*
@@ -34,8 +35,8 @@ src/b3_pulse/
   models/
     baseline/   gradient boosting on the feature store, tracked in MLflow
     lstm/       (part 3)
-  api/          (part 2, not yet built)
-  dashboard/    (part 2, not yet built)
+  api/          FastAPI service: /ingest, /quotes, /predict, /model/metrics
+  dashboard/    Streamlit UI consuming the API
 infra/          docker-compose for local MinIO
 ```
 
@@ -48,7 +49,14 @@ uv run b3-pulse              # ingest -> refine -> build features -> register wa
 uv run python -m b3_pulse.models.baseline.train
 ```
 
-Query the lakehouse:
+Serve the API and dashboard (separate terminals):
+
+```bash
+uv run b3-pulse-api                                    # http://localhost:8000
+uv run streamlit run src/b3_pulse/dashboard/app.py     # http://localhost:8501
+```
+
+Query the lakehouse directly:
 
 ```bash
 uv run python -c "
