@@ -1,75 +1,107 @@
 # b3-pulse
 
-A local-first, modernized rebuild of a 3-part postgrad ML Engineering capstone
-(batch data pipeline → served ML model → deep-learning forecaster), told as
-one story on a single B3 ticker instead of three disconnected assignments.
+A local-first B3 (Bovespa) market-data platform: batch ingestion into a
+medallion lakehouse, a feature store, a baseline ML model, and (in
+progress) an LSTM forecaster — each served through a FastAPI service and a
+Streamlit dashboard. Runs entirely offline against MinIO (S3-compatible)
+and DuckDB, no cloud account required.
 
-Original briefs: `docs/original-tech-challenges/` (kept for reference —
-see `docs/architecture.md` for how each maps onto this rebuild).
+Design rationale and the part-by-part build log live in
+[`docs/architecture.md`](docs/architecture.md). Course-issued source
+material this project was originally scoped from is kept locally, outside
+version control — not published in this repo.
+
+## Status
+
+| Part | Scope | Status |
+|---|---|---|
+| 1 | Ingestion + lakehouse (bronze/silver) | Done |
+| 2 | Feature store + baseline model + API + dashboard | Done |
+| 3 | LSTM forecaster + MLOps | Not started |
 
 ## Architecture
 
-Medallion lakehouse, built up in parts:
+```
+yfinance ──▶ bronze (MinIO, raw parquet, daily partition)
+              │  transform/refine.py  (DuckDB SQL: aggregate, rename, date-calc)
+              ▼
+            silver (MinIO, refined parquet, partitioned by ticker+date)
+              │  features/build.py  (DuckDB window functions)
+              ▼
+            features (MinIO, gold layer: returns, moving averages, volatility, label)
+              │
+              ├─▶ models/baseline/train.py ──▶ MLflow (tracking + registry, sqlite)
+              │
+     warehouse.duckdb  (local catalog: refined_quotes / features views)
+              │
+              ▼
+       api/app.py (FastAPI)  ──▶  dashboard/app.py (Streamlit)
+```
 
-1. **Ingestion + lakehouse** (this part) — pull daily OHLCV via `yfinance`,
-   land raw Parquet in a **bronze** MinIO bucket (daily partition), refine
-   into a **silver** bucket with DuckDB SQL (aggregation, renames, a
-   date-gap calc), and register it as a queryable view in a local DuckDB
-   "warehouse" file — the local stand-in for Glue Catalog + Athena.
-2. **Feature store + served baseline model** (this part) — a gold-layer
-   feature store, a `GradientBoostingRegressor` baseline tracked in MLflow,
-   a FastAPI service, and a Streamlit dashboard consuming it.
-3. **Deep learning + MLOps** — LSTM forecaster on the same silver data,
-   FastAPI `/predict`, Docker, basic monitoring. *(Resumes once the ML
-   server is back online.)*
-
-See `docs/architecture.md` for the full design and rationale.
-
-## Layout
+## Project layout
 
 ```
 src/b3_pulse/
-  ingestion/    fetch OHLCV -> bronze parquet
-  transform/    bronze -> silver (DuckDB SQL) + local warehouse catalog
-  features/     silver -> gold feature store (DuckDB window functions)
+  config.py     Settings (ticker, MinIO, MLflow) via pydantic-settings + .env
+  lake.py       Shared DuckDB connection wired to MinIO; bucket path helpers
+  ingestion/    fetch.py        -- yfinance -> bronze parquet
+  transform/    refine.py       -- bronze -> silver (DuckDB SQL)
+                catalog.py      -- registers views in the local warehouse
+  features/     build.py        -- silver -> gold feature store
   models/
-    baseline/   gradient boosting on the feature store, tracked in MLflow
-    lstm/       (part 3)
-  api/          FastAPI service: /ingest, /quotes, /predict, /model/metrics
-  dashboard/    Streamlit UI consuming the API
-infra/          docker-compose for local MinIO
+    baseline/   train.py        -- GradientBoostingRegressor, MLflow-tracked
+    lstm/       (part 3, not yet built)
+  api/          app.py, service.py, schemas.py -- FastAPI service
+  dashboard/    app.py          -- Streamlit UI, consumes the API over HTTP
+infra/          docker-compose.yml -- local MinIO + bucket bootstrap
+tests/          SQL-logic and API unit tests (no live infra required)
 ```
 
-## Quickstart
+## Setup
 
 ```bash
-cp .env.example .env        # defaults to PETR4.SA
+cp .env.example .env                        # defaults to ticker PETR4.SA
 docker compose -f infra/docker-compose.yml up -d
-uv run b3-pulse              # ingest -> refine -> build features -> register warehouse views
+```
+
+MinIO console: http://localhost:9001 (`b3pulse` / `b3pulse123`).
+
+## Running the pipeline
+
+```bash
+uv run b3-pulse                              # ingest -> refine -> build features -> register warehouse views
 uv run python -m b3_pulse.models.baseline.train
 ```
 
-Serve the API and dashboard (separate terminals):
+## Running the service
 
 ```bash
-uv run b3-pulse-api                                    # http://localhost:8000
-uv run streamlit run src/b3_pulse/dashboard/app.py     # http://localhost:8501
+uv run b3-pulse-api                                     # http://localhost:8000
+uv run streamlit run src/b3_pulse/dashboard/app.py      # http://localhost:8501
 ```
 
-Query the lakehouse directly:
+### API endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Liveness check |
+| POST | `/ingest` | Runs ingest → refine → build-features for a ticker |
+| GET | `/quotes` | Recent refined quotes (for charting) |
+| GET | `/predict` | Next-day close prediction from the current champion model |
+| GET | `/model/metrics` | Latest training run's MAE / RMSE / MAPE |
+
+## Inspecting data and model runs
 
 ```bash
 uv run python -c "
 from b3_pulse.transform.catalog import open_warehouse
 print(open_warehouse().sql('select * from warehouse.features order by trade_date').df())
 "
+
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-Inspect model runs: `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`.
-
-MinIO console: http://localhost:9001 (`b3pulse` / `b3pulse123`).
-
-## Dev
+## Development
 
 ```bash
 uv run pytest

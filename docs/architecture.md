@@ -18,7 +18,9 @@ sequential term projects, all against B3/Bovespa-style stock data:
   to a Dockerized FastAPI/Flask `/predict` endpoint with basic production
   monitoring.
 
-Originals are archived in `docs/original-tech-challenges/`.
+Original brief PDFs are kept locally outside this repo (they're
+course-issued material from a currently-running program, not published
+here or anywhere in git history) — ask if you need the source documents.
 
 ## Why rebuild as one project instead of three
 

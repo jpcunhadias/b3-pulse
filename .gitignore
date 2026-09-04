@@ -19,3 +19,6 @@ __pycache__/
 mlruns/
 mlartifacts/
 mlflow.db
+
+# Course assignment PDFs -- kept locally for reference, never published
+docs/original-tech-challenges/
