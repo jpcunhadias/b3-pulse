@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     minio_secret_key: str = "b3pulse123"
     bronze_bucket: str = "bronze"
     silver_bucket: str = "silver"
+    features_bucket: str = "features"
 
 
 settings = Settings()

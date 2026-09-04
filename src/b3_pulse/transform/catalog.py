@@ -6,7 +6,7 @@ from pathlib import Path
 
 import duckdb
 
-from b3_pulse.lake import connect, silver_root
+from b3_pulse.lake import connect, features_glob, silver_glob
 
 WAREHOUSE_PATH = Path("data/processed/warehouse.duckdb")
 
@@ -24,12 +24,23 @@ def open_warehouse() -> duckdb.DuckDBPyConnection:
     return con
 
 
+def register_view(con: duckdb.DuckDBPyConnection, name: str, glob: str) -> None:
+    con.execute(f"""
+        CREATE OR REPLACE VIEW warehouse.{name} AS
+        SELECT * FROM read_parquet('{glob}', hive_partitioning = true)
+    """)
+
+
 def register_refined_quotes() -> Path:
     con = open_warehouse()
-    con.execute(f"""
-        CREATE OR REPLACE VIEW warehouse.refined_quotes AS
-        SELECT * FROM read_parquet('{silver_root()}/**/*.parquet', hive_partitioning = true)
-    """)
+    register_view(con, "refined_quotes", silver_glob())
+    con.close()
+    return WAREHOUSE_PATH
+
+
+def register_features() -> Path:
+    con = open_warehouse()
+    register_view(con, "features", features_glob())
     con.close()
     return WAREHOUSE_PATH
 

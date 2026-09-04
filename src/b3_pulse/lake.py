@@ -28,3 +28,15 @@ def bronze_path(ticker: str) -> str:
 
 def silver_root() -> str:
     return f"s3://{settings.silver_bucket}"
+
+
+def silver_glob() -> str:
+    return f"{silver_root()}/**/*.parquet"
+
+
+def features_root() -> str:
+    return f"s3://{settings.features_bucket}"
+
+
+def features_glob() -> str:
+    return f"{features_root()}/**/*.parquet"
