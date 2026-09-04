@@ -30,31 +30,34 @@ See `docs/architecture.md` for the full design and rationale.
 src/b3_pulse/
   ingestion/    fetch OHLCV -> bronze parquet
   transform/    bronze -> silver (DuckDB SQL) + local warehouse catalog
-  features/     (part 2)
+  features/     silver -> gold feature store (DuckDB window functions)
   models/
-    baseline/   (part 2)
+    baseline/   gradient boosting on the feature store, tracked in MLflow
     lstm/       (part 3)
-  api/          (parts 2-3)
-  dashboard/    (part 2)
+  api/          (part 2, not yet built)
+  dashboard/    (part 2, not yet built)
 infra/          docker-compose for local MinIO
 ```
 
-## Quickstart (Part 1)
+## Quickstart
 
 ```bash
 cp .env.example .env        # defaults to PETR4.SA
 docker compose -f infra/docker-compose.yml up -d
-uv run b3-pulse              # ingest -> refine -> register warehouse view
+uv run b3-pulse              # ingest -> refine -> build features -> register warehouse views
+uv run python -m b3_pulse.models.baseline.train
 ```
 
-Query the result:
+Query the lakehouse:
 
 ```bash
 uv run python -c "
 from b3_pulse.transform.catalog import open_warehouse
-print(open_warehouse().sql('select * from warehouse.refined_quotes order by trade_date').df())
+print(open_warehouse().sql('select * from warehouse.features order by trade_date').df())
 "
 ```
+
+Inspect model runs: `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
 MinIO console: http://localhost:9001 (`b3pulse` / `b3pulse123`).
 

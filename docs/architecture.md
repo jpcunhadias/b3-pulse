@@ -74,14 +74,26 @@ Not built in Part 1 (deliberately out of scope): the optional streaming
 Bitcoin pipeline from the original Fase 2 brief. Worth a "bonus" section in
 the writeup, not core path.
 
-### Part 2 — Feature store + served baseline model (next)
+### Part 2 — Feature store + served baseline model (in progress)
 
-- FastAPI ingestion endpoint writing into the same lake.
-- A baseline model (e.g. gradient boosting) trained on `refined_quotes` +
-  engineered features — gives an honest baseline to compare the LSTM
-  against later.
-- MLflow for experiment tracking / model registry.
-- Streamlit dashboard as the "productive" surface Fase 3's brief requires.
+`src/b3_pulse/features/`, `src/b3_pulse/models/baseline/`.
+
+- **2a (done)** — `features/build.py`: DuckDB window functions turn
+  `refined_quotes` into a gold-layer feature table: `daily_return`, `ma_5`,
+  `ma_10`, `volatility_5`, and `target_next_close` (the one deliberately
+  forward-looking column — the supervised label). Written to
+  `s3://features/`, registered as `warehouse.features`.
+- **2b (done)** — `models/baseline/train.py`: `GradientBoostingRegressor`
+  predicting `target_next_close` from the feature set, with a strictly
+  chronological train/test split (never shuffle time series — the LSTM
+  in Part 3 must use the same discipline). Evaluated with MAE/RMSE/MAPE
+  (matching Fase 4's required metrics, so it's a real baseline to beat),
+  tracked and registered (`b3-pulse-baseline`) via MLflow with a local
+  SQLite backend (`mlflow.db` — MLflow's plain file store is deprecated as
+  of 3.x). Run it with `uv run python -m b3_pulse.models.baseline.train`,
+  inspect runs with `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`.
+- **Not yet built**: a FastAPI ingestion endpoint, and the Streamlit
+  dashboard that serves as Fase 3's required "productive" surface.
 
 ### Part 3 — Deep learning + MLOps (blocked on ML server, resumes next week)
 

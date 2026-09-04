@@ -15,5 +15,8 @@ class Settings(BaseSettings):
     silver_bucket: str = "silver"
     features_bucket: str = "features"
 
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
+    mlflow_experiment: str = "b3-pulse-baseline"
+
 
 settings = Settings()
