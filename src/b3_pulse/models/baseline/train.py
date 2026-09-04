@@ -19,6 +19,8 @@ from b3_pulse.transform.catalog import open_warehouse
 
 FEATURE_COLUMNS = ["closing_price", "trade_volume", "daily_return", "ma_5", "ma_10", "volatility_5"]
 TARGET_COLUMN = "target_next_close"
+MODEL_NAME = "b3-pulse-baseline"
+MODEL_ALIAS = "champion"
 
 
 def load_dataset(ticker: str) -> pd.DataFrame:
@@ -72,7 +74,10 @@ def run(ticker: str | None = None, test_size: float = 0.2) -> dict[str, float]:
         mlflow.log_param("n_test", len(test_df))
         mlflow.log_params(model.get_params())
         mlflow.log_metrics(metrics)
-        mlflow.sklearn.log_model(model, name="model", registered_model_name="b3-pulse-baseline")
+        model_info = mlflow.sklearn.log_model(model, name="model", registered_model_name=MODEL_NAME)
+
+    version = model_info.registered_model_version
+    mlflow.MlflowClient().set_registered_model_alias(MODEL_NAME, MODEL_ALIAS, version)
 
     return metrics
 

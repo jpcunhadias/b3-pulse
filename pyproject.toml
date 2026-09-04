@@ -9,18 +9,23 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "duckdb>=1.5.5",
+    "fastapi>=0.141.1",
     "mlflow>=3.16.0",
     "pandas>=3.0.5",
     "pyarrow>=25.0.1",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.3",
+    "requests>=2.34.2",
     "s3fs>=2026.7.0",
     "scikit-learn>=1.9.0",
+    "streamlit>=1.63.0",
+    "uvicorn>=0.52.4",
     "yfinance>=1.7.0",
 ]
 
 [project.scripts]
 b3-pulse = "b3_pulse:main"
+b3-pulse-api = "b3_pulse.api.app:serve"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
@@ -29,6 +34,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "dvc[s3]>=3.67.1",
+    "httpx>=0.28.1",
     "ipykernel>=7.3.0",
     "mypy>=2.3.1",
     "pre-commit>=4.6.2",
