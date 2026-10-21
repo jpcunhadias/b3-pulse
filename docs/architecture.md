@@ -128,7 +128,7 @@ exactly the kind of failure mode worth calling out in the writeup as the
 LSTM's reason to exist (or at minimum, motivates retraining on a rolling
 window rather than a fixed historical slice).
 
-### Part 3 — Deep learning + MLOps (blocked on ML server, resumes next week)
+### Part 3 — Deep learning + MLOps (not started)
 
 - LSTM trained on the same silver data.
 - Model versioned in the MLflow registry.
