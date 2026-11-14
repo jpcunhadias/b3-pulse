@@ -2,11 +2,15 @@
 view over the silver Parquet dataset, queryable with plain SQL.
 """
 
+import logging
 from pathlib import Path
 
 import duckdb
 
 from b3_pulse.lake import connect, features_glob, silver_glob
+from b3_pulse.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 WAREHOUSE_PATH = Path("data/processed/warehouse.duckdb")
 
@@ -46,5 +50,6 @@ def register_features() -> Path:
 
 
 if __name__ == "__main__":
+    configure_logging()
     path = register_refined_quotes()
-    print(f"Registered warehouse.refined_quotes in {path}")
+    logger.info("Registered warehouse.refined_quotes in %s", path)

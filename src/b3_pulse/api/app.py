@@ -1,9 +1,47 @@
-from fastapi import FastAPI, HTTPException
+import logging
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from b3_pulse.api import schemas, service
 from b3_pulse.config import settings
+from b3_pulse.logging_config import configure_logging
 
-app = FastAPI(title="b3-pulse API")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    configure_logging()
+    logger.info(
+        "b3-pulse API starting (default ticker=%s, mlflow=%s)",
+        settings.ticker,
+        settings.mlflow_tracking_uri,
+    )
+    yield
+    logger.info("b3-pulse API shutting down")
+
+
+app = FastAPI(title="b3-pulse API", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def log_requests(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("%s %s failed", request.method, request.url.path)
+        raise
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "%s %s -> %d (%.0f ms)", request.method, request.url.path, response.status_code, elapsed_ms
+    )
+    return response
 
 
 @app.get("/health")
