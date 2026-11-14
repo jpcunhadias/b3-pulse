@@ -4,6 +4,8 @@ Gradient boosting over the gold-layer feature store. This is the honest
 baseline the LSTM (Part 3) needs to beat to justify the extra complexity.
 """
 
+import logging
+
 import mlflow
 import mlflow.sklearn
 import pandas as pd
@@ -15,7 +17,10 @@ from sklearn.metrics import (
 )
 
 from b3_pulse.config import settings
+from b3_pulse.logging_config import configure_logging
 from b3_pulse.transform.catalog import open_warehouse
+
+logger = logging.getLogger(__name__)
 
 FEATURE_COLUMNS = ["closing_price", "trade_volume", "daily_return", "ma_5", "ma_10", "volatility_5"]
 TARGET_COLUMN = "target_next_close"
@@ -83,5 +88,6 @@ def run(ticker: str | None = None, test_size: float = 0.2) -> dict[str, float]:
 
 
 if __name__ == "__main__":
+    configure_logging()
     result = run()
-    print(f"Baseline metrics: {result}")
+    logger.info("Baseline metrics: %s", result)

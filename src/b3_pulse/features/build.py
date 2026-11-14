@@ -6,7 +6,12 @@ deliberately the one forward-looking column — the supervised label for the
 baseline model and, later, the LSTM.
 """
 
+import logging
+
 from b3_pulse.lake import connect, features_root, silver_glob
+from b3_pulse.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 FEATURES_SQL = """
 with silver as (
@@ -57,5 +62,6 @@ def build_features(ticker: str) -> str:
 if __name__ == "__main__":
     from b3_pulse.config import settings
 
+    configure_logging()
     path = build_features(settings.ticker)
-    print(f"Features written under {path}")
+    logger.info("Features written under %s", path)
