@@ -1,9 +1,14 @@
 """Pull daily OHLCV history for one ticker and land it as raw (bronze) Parquet."""
 
+import logging
+
 import pandas as pd
 import yfinance as yf
 
 from b3_pulse.config import settings
+from b3_pulse.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_history(ticker: str, start_date: str, end_date: str | None) -> pd.DataFrame:
@@ -43,5 +48,6 @@ def run(
 
 
 if __name__ == "__main__":
+    configure_logging()
     paths = run()
-    print(f"Wrote {len(paths)} daily partitions to bronze.")
+    logger.info("Wrote %d daily partitions to bronze.", len(paths))

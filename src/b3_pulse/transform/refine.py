@@ -7,7 +7,12 @@ expressed as SQL instead of a no-code canvas:
   C. a date calculation (gap in days since the previous trading session)
 """
 
+import logging
+
 from b3_pulse.lake import bronze_path, connect, silver_root
+from b3_pulse.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 REFINE_SQL = """
 with bronze as (
@@ -53,5 +58,6 @@ def refine(ticker: str) -> str:
 if __name__ == "__main__":
     from b3_pulse.config import settings
 
+    configure_logging()
     path = refine(settings.ticker)
-    print(f"Refined silver data written under {path}")
+    logger.info("Refined silver data written under %s", path)
