@@ -1,7 +1,9 @@
 """Baseline model: predicts next-day closing price from engineered features.
 
-Gradient boosting over the gold-layer feature store. This is the honest
-baseline the LSTM (Part 3) needs to beat to justify the extra complexity.
+Gradient boosting over the gold-layer feature store. It does not yet beat
+the naive forecasts (persistence and a 5-day moving average), so their MAEs
+are logged next to the model's on every run; those are the numbers any
+model, including the planned LSTM (Part 3), has to beat.
 """
 
 import logging
@@ -26,6 +28,7 @@ FEATURE_COLUMNS = ["closing_price", "trade_volume", "daily_return", "ma_5", "ma_
 TARGET_COLUMN = "target_next_close"
 MODEL_NAME = "b3-pulse-baseline"
 MODEL_ALIAS = "champion"
+RANDOM_STATE = 42
 
 
 def load_dataset(ticker: str) -> pd.DataFrame:
@@ -47,13 +50,38 @@ def chronological_split(
     return df.iloc[:split_at], df.iloc[split_at:]
 
 
+def naive_baseline_maes(test_df: pd.DataFrame) -> dict[str, float]:
+    """MAE of the naive forecasts on the same rows the model is scored on.
+
+    Persistence predicts tomorrow's close as today's close; ``ma_5`` predicts
+    it as the 5-day moving average known today.
+    """
+    y_test = test_df[TARGET_COLUMN]
+    return {
+        "persistence_mae": mean_absolute_error(y_test, test_df["closing_price"]),
+        "ma5_mae": mean_absolute_error(y_test, test_df["ma_5"]),
+    }
+
+
+def split_params(train_df: pd.DataFrame, test_df: pd.DataFrame) -> dict[str, str]:
+    """Date range and split cutoff, so a run can be tied back to its data."""
+    return {
+        "train_start": str(train_df["trade_date"].min().date()),
+        "train_end": str(train_df["trade_date"].max().date()),
+        "test_start": str(test_df["trade_date"].min().date()),
+        "test_end": str(test_df["trade_date"].max().date()),
+    }
+
+
 def train_and_evaluate(
     train_df: pd.DataFrame, test_df: pd.DataFrame
 ) -> tuple[GradientBoostingRegressor, dict[str, float]]:
     x_train, y_train = train_df[FEATURE_COLUMNS], train_df[TARGET_COLUMN]
     x_test, y_test = test_df[FEATURE_COLUMNS], test_df[TARGET_COLUMN]
 
-    model = GradientBoostingRegressor(n_estimators=200, max_depth=3, learning_rate=0.05)
+    model = GradientBoostingRegressor(
+        n_estimators=200, max_depth=3, learning_rate=0.05, random_state=RANDOM_STATE
+    )
     model.fit(x_train, y_train)
 
     predictions = model.predict(x_test)
@@ -61,7 +89,14 @@ def train_and_evaluate(
         "mae": mean_absolute_error(y_test, predictions),
         "rmse": root_mean_squared_error(y_test, predictions),
         "mape": mean_absolute_percentage_error(y_test, predictions),
+        **naive_baseline_maes(test_df),
     }
+    logger.info(
+        "Test MAE: model %.3f, persistence %.3f, ma_5 %.3f",
+        metrics["mae"],
+        metrics["persistence_mae"],
+        metrics["ma5_mae"],
+    )
     return model, metrics
 
 
@@ -77,6 +112,7 @@ def run(ticker: str | None = None, test_size: float = 0.2) -> dict[str, float]:
         mlflow.log_param("ticker", ticker)
         mlflow.log_param("n_train", len(train_df))
         mlflow.log_param("n_test", len(test_df))
+        mlflow.log_params(split_params(train_df, test_df))
         mlflow.log_params(model.get_params())
         mlflow.log_metrics(metrics)
         model_info = mlflow.sklearn.log_model(model, name="model", registered_model_name=MODEL_NAME)

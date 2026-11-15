@@ -5,6 +5,8 @@ from b3_pulse.models.baseline.train import (
     FEATURE_COLUMNS,
     TARGET_COLUMN,
     chronological_split,
+    naive_baseline_maes,
+    split_params,
     train_and_evaluate,
 )
 
@@ -41,5 +43,42 @@ def test_train_and_evaluate_returns_expected_metric_keys():
 
     _, metrics = train_and_evaluate(train_df, test_df)
 
-    assert set(metrics) == {"mae", "rmse", "mape"}
+    assert set(metrics) == {"mae", "rmse", "mape", "persistence_mae", "ma5_mae"}
     assert all(value >= 0 for value in metrics.values())
+
+
+def test_train_and_evaluate_is_reproducible():
+    df = make_synthetic_dataset()
+    train_df, test_df = chronological_split(df, test_size=0.2)
+
+    _, first = train_and_evaluate(train_df, test_df)
+    _, second = train_and_evaluate(train_df, test_df)
+
+    assert first == second
+
+
+def test_naive_baseline_maes_match_hand_computed_values():
+    test_df = pd.DataFrame(
+        {
+            "closing_price": [10.0, 11.0, 12.0],
+            "ma_5": [9.0, 10.0, 11.0],
+            TARGET_COLUMN: [11.0, 12.0, 12.0],
+        }
+    )
+
+    maes = naive_baseline_maes(test_df)
+
+    # persistence errors: 1, 1, 0 -> 2/3; ma_5 errors: 2, 2, 1 -> 5/3
+    assert np.isclose(maes["persistence_mae"], 2 / 3)
+    assert np.isclose(maes["ma5_mae"], 5 / 3)
+
+
+def test_split_params_record_the_cutoff():
+    df = make_synthetic_dataset()
+    train_df, test_df = chronological_split(df, test_size=0.2)
+
+    params = split_params(train_df, test_df)
+
+    assert params["train_start"] == str(df["trade_date"].min().date())
+    assert params["test_end"] == str(df["trade_date"].max().date())
+    assert params["train_end"] < params["test_start"]
