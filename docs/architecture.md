@@ -90,7 +90,11 @@ the writeup, not core path.
   predicting `target_next_close` from the feature set, with a strictly
   chronological train/test split (never shuffle time series — the LSTM
   in Part 3 must use the same discipline). Evaluated with MAE/RMSE/MAPE
-  (matching Fase 4's required metrics, so it's a real baseline to beat),
+  (Fase 4's required metrics). It is **not** a strong baseline: on the
+  champion's 234-day test split (2025-09-26 → 2026-09-03) its MAE is
+  1.677 BRL against 0.537 for persistence (tomorrow's close = today's) and
+  0.847 for a 5-day moving average, so it loses to the naive forecasts.
+  Training now logs both naive MAEs next to the model's. Runs are
   tracked and registered (`b3-pulse-baseline`) via MLflow with a local
   SQLite backend (`mlflow.db` — MLflow's plain file store is deprecated as
   of 3.x). Run it with `uv run python -m b3_pulse.models.baseline.train`,
@@ -112,30 +116,35 @@ the writeup, not core path.
   - Run with `uv run b3-pulse-api` (serves on `:8000`).
 - **2d (done)** — `dashboard/app.py`: Streamlit dashboard that is the
   "productive surface" Fase 3's brief requires — a closing-price chart, the
-  live next-day prediction with delta vs. last close, and the backtested
-  baseline metrics. Deliberately talks to the FastAPI service over HTTP
+  live next-day prediction with delta vs. last close, and the baseline's
+  metrics on the held-out last 20% of days (a single chronological
+  holdout, not a rolling backtest). Deliberately talks to the FastAPI service over HTTP
   rather than importing pipeline internals, so it's a real client of the
   API, not a shortcut around it. Run with
   `uv run streamlit run src/b3_pulse/dashboard/app.py` (needs the API
   running separately).
 
 **Known limitation found while verifying 2c/2d live**: the baseline
-extrapolates poorly once the price moves outside the range it was trained
-on — trained on ~2022–2024 data (prices in the 30s–40s), it under-predicts
-by ~11% against a 2026 closing price near 47. Gradient-boosted trees don't
-extrapolate past their training range; this is expected, not a bug, and is
-exactly the kind of failure mode worth calling out in the writeup as the
-LSTM's reason to exist (or at minimum, motivates retraining on a rolling
-window rather than a fixed historical slice).
+can't predict above the prices it was trained on. It is trained on
+2022-01-04 → 2025-09-25, and because the target is a price *level*,
+gradient-boosted trees cap their predictions near the training maximum
+(about 42.5 BRL). Once PETR4 traded in the mid-40s, every prediction sat
+at that cap — an ~11% under-prediction against a 2026 close near 47. On
+the 66 test days above the training maximum, MAE is 4.77 against 0.81 for
+persistence. The fix is a modelling one, not more data: predict the
+next-day return (or change) and add the last close back, with
+persistence as the reference to beat.
 
 ### Part 3 — Deep learning + MLOps (not started)
 
 - LSTM trained on the same silver data.
 - Model versioned in the MLflow registry.
-- FastAPI `/predict`, Dockerized, deployed to a low-cost target.
+- FastAPI `/predict` — planned: Dockerize it and deploy to a low-cost
+  target (only MinIO runs in Docker today, via `infra/docker-compose.yml`).
 - Structured logging + a `/metrics` endpoint; Grafana for latency/
   throughput; a rolling-MAE panel as a simple drift signal.
-- CI/CD via GitHub Actions.
+- Planned: CD via GitHub Actions. (CI — ruff + pytest on every push and
+  PR — already runs in `.github/workflows/ci.yml`.)
 
 ## Content plan
 

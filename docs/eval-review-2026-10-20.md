@@ -53,8 +53,10 @@ means taken from the code.
 
    On the 66 test days whose target is above the highest training close
    (42.90 BRL), model MAE is 4.77 against 0.81 for persistence. The model
-   predicts too low on average (mean signed error −0.76 BRL on the
-   longer window). The single aggregate MAE hides this trend.
+   predicts too low on average: mean signed error is −1.44 BRL on the
+   234-day test window (recomputed 2026-11-15). The first version of
+   this review gave −0.76 BRL "on the longer window" without defining
+   that window; quote the test-window figure. The single aggregate MAE hides this trend.
 
 3. **One split and no spread** (read). `chronological_split`
    (`train.py:37-42`) holds out the last 20% once. That's the right

@@ -1,7 +1,7 @@
 [project]
 name = "b3-pulse"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local-first B3 market-data platform: medallion lakehouse on MinIO + DuckDB, feature store, baseline model tracked in MLflow, FastAPI service and Streamlit dashboard"
 readme = "README.md"
 authors = [
     { name = "Joao Pedro Dias", email = "joaopedrocdias@hotmail.com" }

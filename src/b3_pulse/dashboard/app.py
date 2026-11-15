@@ -66,7 +66,7 @@ with side_col:
     except requests.RequestException as exc:
         st.error(f"Could not reach the API: {exc}")
 
-    st.subheader("Baseline accuracy (backtest)")
+    st.subheader("Baseline accuracy (held-out last 20%)")
     try:
         metrics_response = requests.get(
             f"{API_URL}/model/metrics", params={"ticker": ticker}, timeout=10
