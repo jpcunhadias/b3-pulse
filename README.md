@@ -1,8 +1,8 @@
 # b3-pulse
 
 A local-first B3 (Bovespa) market-data platform: batch ingestion into a
-medallion lakehouse, a feature store, a baseline ML model, and (in
-progress) an LSTM forecaster — each served through a FastAPI service and a
+medallion lakehouse, a feature store, a baseline ML model (an LSTM
+forecaster is planned for Part 3) — served through a FastAPI service and a
 Streamlit dashboard. Runs entirely offline against MinIO (S3-compatible)
 and DuckDB, no cloud account required.
 
